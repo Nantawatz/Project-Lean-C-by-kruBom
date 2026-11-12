@@ -90,3 +90,46 @@ h1{font-size:25px;letter-spacing:-.9px}.page-heading p{font-size:11px;margin-top
 .cancel-btn{height:33px;padding:0 13px;color:#8b9880;font-size:11px;border:1px solid #e6eadf;border-radius:6px}
 @media(max-width:1100px){.toolbar-actions{gap:6px}.format-btn{padding:0 8px}.rename-file-btn{max-width:150px}}
 @media(max-width:760px){.format-btn{width:29px;padding:0}.format-btn>span{display:none}.editor-toolbar{flex-wrap:wrap;height:auto;min-height:50px;padding-top:8px;padding-bottom:8px}.toolbar-actions{margin-left:auto;gap:4px}.rename-file-btn{width:24px;max-width:24px}.rename-file-btn strong{display:none}.filename-dialog{padding:24px}.undo-format-btn{width:20px}}
+.input-ready{display:flex;align-items:center;gap:7px;margin-bottom:9px;padding:7px 10px;border:1px solid #dbe9d7;background:#eff7ea;color:#56805a;border-radius:6px;font-size:10px;flex-shrink:0}
+.input-waiting button{font-size:11px;color:#4e805c;padding:4px 7px}
+
+.main-footer{flex-wrap:wrap;gap:8px 20px;line-height:1.7}.main-footer .developer-credit{display:block;color:#6f8072;text-align:right;margin-left:auto}@media(max-width:760px){.main-footer .developer-credit{text-align:left;margin-left:0;width:100%}}
+
+/* Theme preference changes presentation only; editor files stay in memory. */
+:root{color-scheme:light}
+.theme-toggle{margin-left:auto;flex-shrink:0;min-height:36px;padding:0 12px;gap:8px;border:1px solid var(--line);border-radius:8px;background:#f8faf7;color:#596f60;font-size:11px;font-weight:600}
+.theme-toggle:hover{background:var(--mint)}
+html[data-theme=dark]{color-scheme:dark;--ink:#e2eae5;--muted:#a0b0a6;--green:#8ed3b0;--mint:#243e33;--line:#33433b;--surface:#1c2722;--surface-soft:#202f27;--secondary:#a0b0a6;--accent:#8ed3b0}
+html[data-theme=dark] body{background:#131c17}
+html[data-theme=dark] :is(.topbar,.ide,.code-area,.export-menu,.help-modal,.filename-dialog,.focus-btn,.export-btn){background:var(--surface);border-color:var(--line)}
+html[data-theme=dark] .ide{box-shadow:0 8px 30px #0002}
+html[data-theme=dark] :is(.sidebar,.file-tabbar,.file-tabs .file-tab,.editor-status,.console-resizer,.side-bottom,.language-badge,.theme-toggle,.format-btn,.terminal-icon,.local-note){background:var(--surface-soft);border-color:var(--line)}
+html[data-theme=dark] :is(.input-panel textarea,.filename-dialog input){background:#16211b;color:var(--ink);border-color:#43594b;outline-color:var(--accent)}
+html[data-theme=dark] :is(.file-selected,.file-tabs .file-tab.active){background:#284235;border-color:#405e4a;color:#b2e5c7}
+html[data-theme=dark] .file-tabs .file-tab.active{border-top-color:var(--accent)}
+html[data-theme=dark] :is(.file-item:hover,.file-tab .close-file:hover,.theme-toggle:hover,.console-resizer:hover,.console-resizer:focus-visible){background:#2b4436;color:#b2e5c7}
+html[data-theme=dark] :is(.workspace-tag,.side-label,.side-footer,.side-bottom p,.page-heading p,.breadcrumb,.file-item,.file-tabs .file-tab,.autosaved,.editor-status,.editor-status select,.console-tabs button,.console-actions,.main-footer,.main-footer .developer-credit,.input-panel label span,.run-meta,.empty-console,.empty-console p,.empty-console>kbd,.help-modal>p,.help-modal li span,.local-note,.filename-dialog>p,.filename-hint,.cancel-btn,.dialog-close,.modal-close,.file-tab .close-file,.file-tabbar>button,.rename-file-btn svg){color:var(--secondary)}
+html[data-theme=dark] :is(.rename-file-btn,.breadcrumb strong,.open-btn,.export-btn,.theme-toggle,.format-btn,.focus-btn,.undo-format-btn,.language-badge,.help-modal li,.terminal-icon){color:#b1c9b9}
+html[data-theme=dark] :is(.add-file,.side-bottom button,.eyebrow,.empty-console p span,.input-waiting button,.no-problems,.success-text){color:var(--accent)}
+html[data-theme=dark] .console-tabs button.active{color:var(--accent);border-bottom-color:var(--accent)}
+html[data-theme=dark] :is(.console-bar,.cancel-btn,.empty-console>kbd){border-color:var(--line)}
+html[data-theme=dark] .tab-counter{background:#314338;color:#b5c8ba}
+html[data-theme=dark] .tab-counter.error-count{background:#4b302e;color:#ffb8a9}
+html[data-theme=dark] :is(.problem-output,.failure-text,.filename-dialog .filename-error){color:#ffb3a4}
+html[data-theme=dark] .filename-dialog input[aria-invalid=true]{border-color:#ed9c8a}
+html[data-theme=dark] .run-output pre{color:#dce9df}
+html[data-theme=dark] .input-ready{background:#253d2d;border-color:#3c5c43;color:#b1dcae}
+html[data-theme=dark] .code-content pre{color:#dce9df}
+html[data-theme=dark] .code-content textarea{caret-color:#b4e8ca}
+html[data-theme=dark] .code-content textarea::selection{background:#76c3a150}
+html[data-theme=dark] .line-numbers{color:#82988a}
+html[data-theme=dark] .tok-key{color:#dba9e2}
+html[data-theme=dark] .tok-string{color:#a4d6a1}
+html[data-theme=dark] .tok-comment{color:#90a697}
+html[data-theme=dark] .tok-pre{color:#87c8e1}
+html[data-theme=dark] .tok-number{color:#edc38d}
+html[data-theme=dark] .c-icon{color:#87c8e1}
+html[data-theme=dark] .editor-watermark{color:#33463a}
+html[data-theme=dark] .modal-backdrop{background:#050c08aa}
+html[data-theme=dark] :is(button,a,input,textarea,select):focus-visible{outline-color:var(--accent)}
+@media(max-width:760px){.theme-toggle{min-height:34px;padding:0 10px;font-size:10px}}

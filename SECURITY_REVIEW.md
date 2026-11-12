@@ -14,7 +14,7 @@
 | Compiler supply chain | runtime download ที่เปลี่ยนได้อาจไม่ตรงกับรุ่นที่ทดสอบ | commit toolchain พร้อม SHA-256 และตรวจใน trusted preparation worker ก่อนเก็บใช้ซ้ำ; pin Runno และ fflate |
 | Dependency advisory | fflate 0.8.2 ที่ทดลองนำเข้ามี advisory | ใช้ 0.8.3; PostCSS override 8.5.32; audit ไม่พบรายการช่องโหว่ใน dependency production ณ วันที่ตรวจ |
 | Browser hardening | ไม่ได้ระบุ policy สำหรับ frame, object หรือ external connections | CSP, frame-ancestors none, X-Frame-Options DENY, nosniff, Referrer-Policy, Permissions-Policy |
-| File/path validation | ชื่อไฟล์และโปรเจกต์อาจไม่ตรงขอบเขตที่กำหนด | จำกัดชื่อไฟล์ .c/.h, ปฏิเสธ traversal/duplicate paths, จำกัดขนาดเป็น UTF-8 bytes |
+| File/path validation | ชื่อไฟล์และโปรเจกต์อาจไม่ตรงขอบเขตที่กำหนด | จำกัดชื่อไฟล์ .c, ปฏิเสธ traversal/duplicate paths, จำกัดขนาดเป็น UTF-8 bytes |
 
 ## Threat boundary
 
@@ -26,7 +26,7 @@ UI ใช้ React text rendering สำหรับ source, output และ er
 
 ## ผลการตรวจ
 
-- npm test: 25 tests ครอบคลุมการ Compile C จริง, standards, stdin/stdout, EOF, syntax errors, worker timeout, output cap, stderr/exit status, WASM export, virtual filesystem/environment boundary, local header และ integrity assets รวมถึงการใช้ prepared compiler ซ้ำโดยไม่เก็บไฟล์ผู้ใช้ การป้องกัน cache เสีย fallback เมื่อ storage ใช้ไม่ได้ และการปฏิเสธ asset ที่ hash ไม่ตรง
+- npm test: 33 tests ครอบคลุมการ Compile C จริง, standards, stdin/stdout, EOF, syntax errors, worker timeout, output cap, stderr/exit status, WASM export, virtual filesystem/environment boundary, การแยกโปรแกรมแต่ละแท็บ และ integrity assets รวมถึงการใช้ prepared compiler ซ้ำโดยไม่เก็บไฟล์ผู้ใช้ การป้องกัน cache เสีย fallback เมื่อ storage ใช้ไม่ได้ และการปฏิเสธ asset ที่ hash ไม่ตรง
 - Production build และ TypeScript ผ่าน
 - Browser QA ของ Production: Run แสดงผลจริง, Stop ทำลาย worker และ compiled WASM ดาวน์โหลดได้
 - ตรวจ response headers และยืนยัน native endpoint ปิดใช้งาน
@@ -52,4 +52,12 @@ UI ใช้ React text rendering สำหรับ source, output และ er
 
 ## Named files and formatting
 
-ชื่อไฟล์ใหม่/เปลี่ยนชื่อผ่าน validation เดิม (.c/.h, ไม่มี traversal, ปฏิเสธชื่อซ้ำไม่แยกตัวพิมพ์เล็กใหญ่) การเปิดไฟล์ชื่อซ้ำจะสร้างชื่อที่ไม่ชนกัน Format ทำงานใน worker แยกด้วย Clang-Format WASM ที่ pin เวอร์ชันและ SHA-256 โหลดจาก origin เดียว ไม่ส่ง source ไปบริการภายนอก จำกัด source/output 100 KB และ timeout 30 วินาที มี snapshot guard ป้องกันผล Format เขียนทับโค้ดที่ผู้ใช้แก้ระหว่างรอ และมี Undo เฉพาะผล Format ล่าสุดที่ยังไม่ได้แก้ไขต่อ Formatter เก็บไว้ใช้ซ้ำใน memory ของหน้าปัจจุบัน และ source ไม่ถูกเก็บใน persistent cache
+ชื่อไฟล์ใหม่/เปลี่ยนชื่อผ่าน validation เดิม (.c, ไม่มี traversal, ปฏิเสธชื่อซ้ำไม่แยกตัวพิมพ์เล็กใหญ่) การเปิดไฟล์ชื่อซ้ำจะสร้างชื่อที่ไม่ชนกัน Format ทำงานใน worker แยกด้วย Clang-Format WASM ที่ pin เวอร์ชันและ SHA-256 โหลดจาก origin เดียว ไม่ส่ง source ไปบริการภายนอก จำกัด source/output 100 KB และ timeout 30 วินาที มี snapshot guard ป้องกันผล Format เขียนทับโค้ดที่ผู้ใช้แก้ระหว่างรอ และมี Undo เฉพาะผล Format ล่าสุดที่ยังไม่ได้แก้ไขต่อ Formatter เก็บไว้ใช้ซ้ำใน memory ของหน้าปัจจุบัน และ source ไม่ถูกเก็บใน persistent cache
+
+## ตรวจความเสถียรก่อน Push รอบล่าสุด
+
+- แก้การตรวจ stdin ที่เคยอ่านโค้ดจากแท็บอื่น ทำให้บางโปรแกรมรอ Input โดยไม่จำเป็น และเพิ่ม regression test ยืนยันการแยกแท็บ
+- ตรวจ Run แบบรอ Input, Enter ส่งค่าจากโปรแกรมที่ Compile แล้ว, syntax errors, โค้ดที่ไม่รับ Input และการเปลี่ยน source เพื่อยกเลิกผล Compile เก่า
+- ตรวจ Production ในเครื่อง: Format, สร้างแท็บว่างโดยรักษาไฟล์เดิม, สลับ Light/Dark, Stop, timeout และรันงานต่อหลังหยุด
+- ดาวน์โหลด Source และตรวจว่าเนื้อหาตรงกับ Editor, ตรวจไฟล์และ Input ภายใน Project ZIP และตรวจ WebAssembly.validate ของโปรแกรมที่ Export
+- npm test ผ่าน 33 รายการ, Production build ผ่าน, npm audit --omit=dev ไม่พบรายงานช่องโหว่ และ /api/run ตอบ 410

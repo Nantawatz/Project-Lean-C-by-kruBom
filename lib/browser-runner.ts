@@ -1,7 +1,7 @@
 import { validateProgram } from './security.mjs';
 import type { prepareToolchain } from './c-engine.mjs';
-export type ProgramRequest={code:string;input:string;filename:string;standard:string;files:{name:string;code:string}[];binary:boolean};
-export type ProgramResult={stage?:string;stdout?:string;stderr?:string;warnings?:string;error?:string;reason?:string;code?:number;duration?:number;binary?:Uint8Array;name?:string};
+export type ProgramRequest={code:string;input:string;filename:string;standard:string;files:{name:string;code:string}[];binary:boolean;mode?:'auto'|'submit';compiledBinary?:Uint8Array;compileWarnings?:string};
+export type ProgramResult={stage?:string;stdout?:string;stderr?:string;warnings?:string;error?:string;reason?:string;code?:number;duration?:number;binary?:Uint8Array;name?:string;awaitingInput?:boolean;compiledBinary?:Uint8Array};
 type Toolchain=Awaited<ReturnType<typeof prepareToolchain>>;
 let prepared:Promise<Toolchain>|null=null;
 let compilerReady=false;
@@ -31,9 +31,9 @@ export function startBrowserRun(payload:ProgramRequest,onStage:(stage:string)=>v
   const promise=new Promise<ProgramResult>(resolve=>{
     finish=result=>{if(done)return;done=true;clearTimeout(timer);worker?.terminate();resolve(result);};
     const limit=(ms:number,reason:string)=>{clearTimeout(timer);timer=setTimeout(()=>finish({code:1,reason,duration:Date.now()-started}),ms);};
-    if(!compilerReady)onStage('loading');
+    if(!payload.compiledBinary&&!compilerReady)onStage('loading');
     limit(120000,'Compiler loading timed out. Check your connection and retry.');
-    getToolchain().then(toolchain=>{
+    (payload.compiledBinary?Promise.resolve(null):getToolchain()).then(toolchain=>{
       if(done)return;
       // Each program gets a fresh worker and cloned filesystem; only trusted
       // compiler modules and the clean sysroot template are shared between jobs.

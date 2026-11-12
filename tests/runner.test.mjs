@@ -56,8 +56,8 @@ test('program linear memory cannot grow beyond the configured 64 MiB',async()=>{
  const r=await run(program('#include <stdio.h>\n#include <stdlib.h>\nint main(void){void*p=malloc(80*1024*1024);printf("%d",p==NULL);free(p);return 0;}'));
  assert.equal(r.stdout,'1');assert.equal(r.code,0);
 });
-test('supports local header tabs without linking unrelated main functions',async()=>{
- const r=await run(program('#include <stdio.h>\n#include "values.h"\nint main(void){printf("%d",ANSWER);return 0;}',{files:[{name:'values.h',code:'#define ANSWER 42'},{name:'other.c',code:'int main(void){return 1;}'}]}));
+test('runs the selected C source without linking unrelated main functions',async()=>{
+ const r=await run(program('#include <stdio.h>\nint main(void){printf("%d",42);return 0;}',{files:[{name:'other.c',code:'int main(void){return 1;}'}]}));
  assert.equal(r.stdout,'42');assert.equal(r.code,0);
 });
 test('UTF-8 stdin survives the virtual input interface',async()=>{
@@ -67,6 +67,8 @@ test('UTF-8 stdin survives the virtual input interface',async()=>{
 test('validates paths, duplicate names, standards and resource limits',()=>{
  assert.equal(safeFilename('../../secret.c'),'source.c');
  assert.throws(()=>validateProgram(program('',{filename:'../secret.c'})),/filename/);
+ assert.throws(()=>validateProgram(program('',{filename:'main.h'})),/filename/);
+ assert.throws(()=>validateProgram(program('',{files:[{name:'utils.h',code:''}]})),/filename/);
  assert.throws(()=>validateProgram(program('',{standard:'anything'})),/standard/);
  assert.throws(()=>validateProgram(program('ก'.repeat(34000))),/100 KB/);
  assert.throws(()=>validateProgram(program('',{files:[{name:'a.c',code:''},{name:'a.c',code:''}]})),/duplicate/);
@@ -85,11 +87,11 @@ test('prepared compiler is reused without reloading or leaking source files',asy
  let reads=0;
  const prepared=await prepareToolchain(async name=>{reads++;return new Uint8Array(await readFile(new URL('../public/toolchain/'+name,import.meta.url)));});
  const noFetch=()=>{throw new Error('Warm runs must not fetch assets');};
- const first=await compileAndRun(program('#include <stdio.h>\n#include "private.h"\nint main(void){printf("%d",VALUE);return 0;}',{files:[{name:'private.h',code:'#define VALUE 42'}]}),noFetch,()=>{},prepared);
+ const first=await compileAndRun(program('#include <stdio.h>\n#include "private.c"\nint main(void){printf("%d",VALUE);return 0;}',{files:[{name:'private.c',code:'#define VALUE 42'}]}),noFetch,()=>{},prepared);
  const second=await compileAndRun(program('#include <stdio.h>\nint main(void){puts("warm");return 0;}'),noFetch,()=>{},prepared);
- const third=await compileAndRun(program('#include "private.h"\nint main(void){return VALUE;}'),noFetch,()=>{},prepared);
+ const third=await compileAndRun(program('#include "private.c"\nint main(void){return VALUE;}'),noFetch,()=>{},prepared);
  assert.equal(reads,3);assert.equal(first.stdout,'42');assert.equal(second.stdout,'warm\n');assert.equal(third.stage,'compile');assert.notEqual(third.code,0);
- assert.equal(prepared.sysroot['/private.h'],undefined);assert.equal(prepared.sysroot['/program.o'],undefined);assert.equal(prepared.sysroot['/program.wasm'],undefined);
+ assert.equal(prepared.sysroot['/private.c'],undefined);assert.equal(prepared.sysroot['/program.o'],undefined);assert.equal(prepared.sysroot['/program.wasm'],undefined);
 });
 
 function assetFixture(){
@@ -120,4 +122,48 @@ test('unverified network assets are rejected and never cached',async()=>{
  const {loadVerifiedAsset}=await import('../lib/toolchain-assets.mjs');const f=assetFixture();
  await assert.rejects(loadVerifiedAsset('compiler.wasm',f.entry,f.storage,async()=>new Response('wrong compiler')),/integrity/);
  assert.equal(f.items.size,0);
+});
+
+test('Run compiles stdin programs without executing or consuming existing input',async()=>{
+ const {prepareToolchain,compileAndRun}=await import('../lib/c-engine.mjs');const prepared=await prepareToolchain(async name=>new Uint8Array(await readFile(new URL('../public/toolchain/'+name,import.meta.url))));
+ const stages=[];
+ const payload=program('#include <stdio.h>\nint main(void){puts("hidden until Enter");int n;if(scanf("%d",&n)!=1)return 1;printf("%d",n+1);return 0;}',{input:'41',mode:'auto'});
+ const checked=await compileAndRun(payload,()=>{throw new Error('Unexpected compiler reload');},stage=>stages.push(stage),prepared);
+ assert.equal(checked.awaitingInput,true);assert.equal(checked.stage,'compiled');assert.equal(checked.code,0);assert.equal(checked.stdout,'');assert.ok(checked.compiledBinary.length>100);assert.ok(!stages.includes('run'));
+ const submitted=await compileAndRun({...payload,mode:'submit',compiledBinary:checked.compiledBinary,compileWarnings:checked.warnings},()=>{throw new Error('Enter must reuse the compiled program');});
+ assert.equal(submitted.code,0);assert.equal(submitted.stdout,'hidden until Enter\n42');
+});
+test('Run still executes output-only code and ignores input-like comments/strings',async()=>{
+ const r=await run(program('#include <stdio.h>\n// scanf stdin fgets\nint main(void){puts("scanf stdin getchar");return 0;}',{mode:'auto'}));
+ assert.equal(r.code,0);assert.equal(r.stdout,'scanf stdin getchar\n');assert.notEqual(r.awaitingInput,true);
+});
+test('Run waits for getchar and fgets stdin programs',async()=>{
+ for(const code of ['#include <stdio.h>\nint main(void){return getchar();}','#include <stdio.h>\nint main(void){char s[20];fgets(s,20,stdin);return 0;}']){
+  const r=await run(program(code,{mode:'auto'}));assert.equal(r.awaitingInput,true);assert.equal(r.stdout,'');
+ }
+});
+test('syntax errors take precedence over waiting for Input',async()=>{
+ const r=await run(program('#include <stdio.h>\nint main(void){int n;scanf("%d",&n) BROKEN;return 0;}',{mode:'auto'}));
+ assert.equal(r.stage,'compile');assert.notEqual(r.code,0);assert.notEqual(r.awaitingInput,true);assert.match(r.stderr,/error/);
+});
+test('ordinary virtual file reads do not require standard input',async()=>{
+ const r=await run(program('#include <stdio.h>\nint main(void){FILE*f=fopen("/sample.txt","w");if(!f)return 1;fputs("Q",f);fclose(f);f=fopen("/sample.txt","r");if(!f)return 2;printf("%c stdin scanf",fgetc(f));fclose(f);return 0;}',{mode:'auto'}));
+ assert.equal(r.code,0);assert.equal(r.stdout,'Q stdin scanf');assert.notEqual(r.awaitingInput,true);
+});
+
+test('stdin in an unrelated C tab does not make the selected program wait for input',async()=>{
+ const r=await run(program('#include <stdio.h>\nint main(void){FILE*f=fopen("/sample.txt","w");if(!f)return 1;fputs("Q",f);fclose(f);f=fopen("/sample.txt","r");if(!f)return 2;printf("%c",fgetc(f));fclose(f);return 0;}',{mode:'auto',files:[{name:'other.c',code:'#include <stdio.h>\nint main(void){return fgetc(stdin);}'}]}));
+ assert.equal(r.code,0);assert.equal(r.stdout,'Q');assert.notEqual(r.awaitingInput,true);
+});
+
+test('runtime stdin fallback waits for indirect reads alongside virtual file operations',async()=>{
+ const r=await run(program('#include <stdio.h>\n#include <unistd.h>\nint main(void){FILE*f=fopen("/sample.txt","w");if(f)fclose(f);puts("hidden until Enter");char c;read(0,&c,1);printf("%c",c);return 0;}',{mode:'auto',input:'Z'}));
+ assert.equal(r.awaitingInput,true);assert.equal(r.code,0);assert.equal(r.stdout,'');assert.ok(r.compiledBinary.length>100);
+ const submitted=await run(program('',{mode:'submit',input:'Z',compiledBinary:r.compiledBinary}));
+ assert.equal(submitted.code,0);assert.equal(submitted.stdout,'hidden until Enter\nZ');
+});
+test('compilation key changes for source, file names, other source files or standard, but not Input',async()=>{
+ const {compilationKey}=await import('../lib/input-flow.mjs');const p=program('int main(void){return 0;}',{files:[{name:'a.c',code:'#define A 1'}]});const key=compilationKey(p);
+ assert.equal(compilationKey({...p,input:'new input'}),key);
+ for(const changed of [{...p,code:p.code+'\n'},{...p,filename:'renamed.c'},{...p,standard:'c99'},{...p,files:[{name:'a.c',code:'#define A 2'}]}])assert.notEqual(compilationKey(changed),key);
 });

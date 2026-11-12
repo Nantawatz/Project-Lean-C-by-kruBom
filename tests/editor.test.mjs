@@ -4,11 +4,11 @@ import { format } from '@wasm-fmt/clang-format/node';
 import { C_FORMAT_STYLE } from '../lib/format-style.mjs';
 import { requestedFilename } from '../lib/security.mjs';
 
-test('file names support C source, headers and an automatic .c suffix',()=>{
- assert.equal(requestedFilename('  hello  '),'hello.c');assert.equal(requestedFilename('utils.h'),'utils.h');assert.equal(requestedFilename('Student_01-test.c'),'Student_01-test.c');
+test('file names support only C source and an automatic .c suffix',()=>{
+ assert.equal(requestedFilename('  hello  '),'hello.c');assert.equal(requestedFilename('HELLO.C'),'HELLO.C');assert.equal(requestedFilename('Student_01-test.c'),'Student_01-test.c');
 });
 test('file names reject traversal, duplicate names, invalid extensions and empty input',()=>{
- for(const name of ['','../secret.c','a/b.c','a\\b.c','.hidden.c','evil.js','bad name.c'])assert.throws(()=>requestedFilename(name));
+ for(const name of ['','../secret.c','a/b.c','a\\b.c','.hidden.c','evil.js','bad name.c','utils.h','UTILS.H'])assert.throws(()=>requestedFilename(name));
  assert.throws(()=>requestedFilename('HELLO.c',['hello.c']),/มีไฟล์ชื่อนี้แล้ว/);
  assert.throws(()=>requestedFilename('x'.repeat(101)+'.c'));
 });
