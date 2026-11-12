@@ -78,3 +78,46 @@ test('toolchain assets exactly match the pinned integrity manifest',async()=>{
   const data=await readFile(new URL('../public/toolchain/'+name,import.meta.url));assert.equal(data.length,entry.bytes);assert.equal(createHash('sha256').update(data).digest('hex'),entry.sha256);
  }
 });
+
+// Cache regressions: sharing compiler assets must never share user files.
+test('prepared compiler is reused without reloading or leaking source files',async()=>{
+ const {prepareToolchain,compileAndRun}=await import('../lib/c-engine.mjs');
+ let reads=0;
+ const prepared=await prepareToolchain(async name=>{reads++;return new Uint8Array(await readFile(new URL('../public/toolchain/'+name,import.meta.url)));});
+ const noFetch=()=>{throw new Error('Warm runs must not fetch assets');};
+ const first=await compileAndRun(program('#include <stdio.h>\n#include "private.h"\nint main(void){printf("%d",VALUE);return 0;}',{files:[{name:'private.h',code:'#define VALUE 42'}]}),noFetch,()=>{},prepared);
+ const second=await compileAndRun(program('#include <stdio.h>\nint main(void){puts("warm");return 0;}'),noFetch,()=>{},prepared);
+ const third=await compileAndRun(program('#include "private.h"\nint main(void){return VALUE;}'),noFetch,()=>{},prepared);
+ assert.equal(reads,3);assert.equal(first.stdout,'42');assert.equal(second.stdout,'warm\n');assert.equal(third.stage,'compile');assert.notEqual(third.code,0);
+ assert.equal(prepared.sysroot['/private.h'],undefined);assert.equal(prepared.sysroot['/program.o'],undefined);assert.equal(prepared.sysroot['/program.wasm'],undefined);
+});
+
+function assetFixture(){
+ const data=new TextEncoder().encode('trusted compiler asset');
+ const entry={bytes:data.length,sha256:createHash('sha256').update(data).digest('hex')};
+ const items=new Map();let fetches=0;
+ const cache={match:async key=>items.get(key)?.clone(),put:async(key,value)=>items.set(key,value.clone()),delete:async key=>items.delete(key)};
+ return {data,entry,items,storage:{open:async()=>cache},fetchAsset:async()=>{fetches++;return new Response(data);},count:()=>fetches};
+}
+test('verified persistent cache avoids repeat asset downloads',async()=>{
+ const {loadVerifiedAsset}=await import('../lib/toolchain-assets.mjs');const f=assetFixture();
+ const first=await loadVerifiedAsset('compiler.wasm',f.entry,f.storage,f.fetchAsset);
+ const second=await loadVerifiedAsset('compiler.wasm',f.entry,f.storage,f.fetchAsset);
+ assert.deepEqual(first,f.data);assert.deepEqual(second,f.data);assert.equal(f.count(),1);
+});
+test('corrupted cache is discarded and replaced by verified bytes',async()=>{
+ const {loadVerifiedAsset}=await import('../lib/toolchain-assets.mjs');const f=assetFixture();
+ f.items.set('/toolchain/compiler.wasm?sha256='+f.entry.sha256,new Response('tampered cache'));
+ const result=await loadVerifiedAsset('compiler.wasm',f.entry,f.storage,f.fetchAsset);
+ assert.deepEqual(result,f.data);assert.equal(f.count(),1);
+});
+test('cache quota or unavailable storage falls back to in-memory preparation',async()=>{
+ const {loadVerifiedAsset}=await import('../lib/toolchain-assets.mjs');const f=assetFixture();
+ const result=await loadVerifiedAsset('compiler.wasm',f.entry,{open:async()=>{throw new Error('Storage unavailable');}},f.fetchAsset);
+ assert.deepEqual(result,f.data);assert.equal(f.count(),1);
+});
+test('unverified network assets are rejected and never cached',async()=>{
+ const {loadVerifiedAsset}=await import('../lib/toolchain-assets.mjs');const f=assetFixture();
+ await assert.rejects(loadVerifiedAsset('compiler.wasm',f.entry,f.storage,async()=>new Response('wrong compiler')),/integrity/);
+ assert.equal(f.items.size,0);
+});

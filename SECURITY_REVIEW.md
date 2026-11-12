@@ -11,7 +11,7 @@
 | Native code execution บนเซิร์ฟเวอร์ | โค้ด C มีสิทธิ์เท่ากับโปรเซส server; hostname check ไม่ใช่ sandbox | ลบ native runner และ dependency ของ Zig; ปิด `/api/run` ด้วย HTTP 410; ทุก run ใช้ browser WASM worker |
 | Online execution ใช้งานไม่ได้ | Vercel ไม่มี compiler ที่จัดเตรียมไว้และ endpoint จำกัด localhost | self-host Clang/WASI assets ใน public และ Compile/Run ใน browser |
 | Resource exhaustion | ลูปค้างและ Output / virtual writes อาจกินทรัพยากร | worker ถูก terminate เมื่อ Stop / timeout / จบ; จำกัด memory ด้วย linker 64 MiB, Output, virtual writes, source, Input และจำนวนไฟล์ |
-| Compiler supply chain | runtime download ที่เปลี่ยนได้อาจไม่ตรงกับรุ่นที่ทดสอบ | commit toolchain พร้อม SHA-256 และตรวจใน worker ก่อน Compile; pin Runno และ fflate |
+| Compiler supply chain | runtime download ที่เปลี่ยนได้อาจไม่ตรงกับรุ่นที่ทดสอบ | commit toolchain พร้อม SHA-256 และตรวจใน trusted preparation worker ก่อนเก็บใช้ซ้ำ; pin Runno และ fflate |
 | Dependency advisory | fflate 0.8.2 ที่ทดลองนำเข้ามี advisory | ใช้ 0.8.3; PostCSS override 8.5.32; audit ไม่พบรายการช่องโหว่ใน dependency production ณ วันที่ตรวจ |
 | Browser hardening | ไม่ได้ระบุ policy สำหรับ frame, object หรือ external connections | CSP, frame-ancestors none, X-Frame-Options DENY, nosniff, Referrer-Policy, Permissions-Policy |
 | File/path validation | ชื่อไฟล์และโปรเจกต์อาจไม่ตรงขอบเขตที่กำหนด | จำกัดชื่อไฟล์ .c/.h, ปฏิเสธ traversal/duplicate paths, จำกัดขนาดเป็น UTF-8 bytes |
@@ -20,13 +20,13 @@
 
 ผู้เยี่ยมชมอาจเขียน C ที่เป็นอันตรายได้ แต่ C ทำงานเป็น WASI WebAssembly ภายใน dedicated worker ไม่ใช่ JavaScript eval หรือ native process ไม่ได้รับ host filesystem, environment, network หรือ shell imports runtime ใช้ virtual filesystem ใหม่เมื่อ Run ไม่แชร์กับ sysroot ของ compiler
 
-Worker ถูกทำลายหลังจบหรือเมื่อผู้ใช้ Stop และหน้าหลักยังใช้งานได้ระหว่างรัน ทรัพยากร compiler เป็น asset ที่เชื่อถือได้และมี integrity check ส่วนโค้ด C ของผู้ใช้ไม่ถูกส่งไป server เพื่อ Compile
+Worker ของโปรแกรมถูกทำลายหลังจบหรือเมื่อผู้ใช้ Stop และหน้าหลักยังใช้งานได้ระหว่างรัน มี trusted preparation worker แยกสำหรับโหลดและเตรียม compiler เท่านั้น หาก Stop ขณะรอ compiler การเตรียมชุดนี้ยังทำต่อได้ แต่ไม่มี source หรือ Input ผู้ใช้ถูกส่งเข้า worker เตรียม compiler ทรัพยากร compiler เป็น asset ที่เชื่อถือได้และมี integrity check ส่วนโค้ด C ของผู้ใช้ไม่ถูกส่งไป server เพื่อ Compile
 
 UI ใช้ React text rendering สำหรับ source, output และ errors ไม่มี dangerouslySetInnerHTML หรือการนำโค้ดผู้ใช้ไป eval เป็น JavaScript
 
 ## ผลการตรวจ
 
-- npm test: 14 tests ครอบคลุมการ Compile C จริง, standards, stdin/stdout, EOF, syntax errors, worker timeout, output cap, stderr/exit status, WASM export, virtual filesystem/environment boundary, local header และ integrity assets
+- npm test: 19 tests ครอบคลุมการ Compile C จริง, standards, stdin/stdout, EOF, syntax errors, worker timeout, output cap, stderr/exit status, WASM export, virtual filesystem/environment boundary, local header และ integrity assets รวมถึงการใช้ prepared compiler ซ้ำโดยไม่เก็บไฟล์ผู้ใช้ การป้องกัน cache เสีย fallback เมื่อ storage ใช้ไม่ได้ และการปฏิเสธ asset ที่ hash ไม่ตรง
 - Production build และ TypeScript ผ่าน
 - Browser QA ของ Production: Run แสดงผลจริง, Stop ทำลาย worker และ compiled WASM ดาวน์โหลดได้
 - ตรวจ response headers และยืนยัน native endpoint ปิดใช้งาน
@@ -45,3 +45,7 @@ UI ใช้ React text rendering สำหรับ source, output และ er
 ## การดูแลหลังส่งมอบ
 
 ตรวจ npm audit และ CI เป็นระยะ ก่อนอัปเดต compiler ให้ตรวจ upstream licenses/provenance, เปลี่ยน manifest SHA-256, ทดสอบทั้งชุดและ browser QA ใหม่ หากต้องการรับรายงานช่องโหว่ให้ใช้ private GitHub security advisory แทนการโพสต์ exploit พร้อมข้อมูลผู้ใช้ใน public issue
+
+## Compiler cache
+
+เก็บเฉพาะ asset compiler ที่ตรวจ hash แล้วใน Cache Storage ตาม key ที่มี SHA-256 ของ manifest และเก็บ WebAssembly.Module กับ sysroot ต้นฉบับใน memory ระหว่างเปิดหน้า แต่ละ job รับ structured clone ของ template และสร้าง WASI instance ใหม่ ไม่ใช้ WASI memory, user virtual files, source หรือ Input ร่วมกัน การปิดหน้าเว็บล้าง compiler modules ใน memory ส่วน Cache Storage อาจอยู่ต่อจนเบราว์เซอร์ลบ ไม่ถือเป็นที่เก็บ source code
