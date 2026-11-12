@@ -29,7 +29,6 @@ Development ใช้ `.next-dev/` ส่วน Production ใช้ `.next/` �
 - ลากเส้นเหนือ Console เพื่อแบ่งพื้นที่ ดับเบิลคลิกเพื่อคืนขนาดเดิม หรือใช้ปุ่มขยายพื้นที่เขียนโค้ด (Esc เพื่อออก)
 - ปุ่ม Light / Dark มุมขวาบนสลับโหมดสว่างและมืด ครั้งแรกใช้โหมดของอุปกรณ์ แล้วจำโหมดที่ผู้ใช้เลือกไว้ในเบราว์เซอร์
 - Source code และ Ctrl+S ดาวน์โหลดไฟล์ปัจจุบันเป็น `.c` Project ZIP รวมทุกแท็บพร้อมไฟล์ Input และ README
-- Compiled program ดาวน์โหลด `.wasm` ที่รันด้วย WASI preview1 runtime ได้ ไม่ใช่ Windows `.exe` หากต้องการ `.exe` ให้ Export source แล้วใช้ GCC/Clang บน Windows
 
 ไฟล์และ Input อยู่ใน React memory เท่านั้น รีเฟรชหรือปิดหน้าเว็บแล้วหาย ไม่มีการบันทึก source ลง localStorage มีเฉพาะขนาด/สถานะ Console และโหมดสีที่ถูกจำไว้
 
