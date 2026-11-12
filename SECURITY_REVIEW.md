@@ -1,0 +1,47 @@
+# Security review — C Studio
+
+วันที่ตรวจ: 12 พฤศจิกายน 2026
+
+ขอบเขต: source ของแอป, execution boundary, dependency audit, integrity ของ compiler assets, HTTP security headers และทดสอบ Production build ภายในเครื่อง เป็นการตรวจ code และทดสอบตามกรณี ไม่ใช่การรับรองว่าไม่มีช่องโหว่ทุกชนิด
+
+## ประเด็นที่พบและแก้
+
+| ประเด็น | ผลกระทบของโครงสร้างเดิม | การแก้ |
+| --- | --- | --- |
+| Native code execution บนเซิร์ฟเวอร์ | โค้ด C มีสิทธิ์เท่ากับโปรเซส server; hostname check ไม่ใช่ sandbox | ลบ native runner และ dependency ของ Zig; ปิด `/api/run` ด้วย HTTP 410; ทุก run ใช้ browser WASM worker |
+| Online execution ใช้งานไม่ได้ | Vercel ไม่มี compiler ที่จัดเตรียมไว้และ endpoint จำกัด localhost | self-host Clang/WASI assets ใน public และ Compile/Run ใน browser |
+| Resource exhaustion | ลูปค้างและ Output / virtual writes อาจกินทรัพยากร | worker ถูก terminate เมื่อ Stop / timeout / จบ; จำกัด memory ด้วย linker 64 MiB, Output, virtual writes, source, Input และจำนวนไฟล์ |
+| Compiler supply chain | runtime download ที่เปลี่ยนได้อาจไม่ตรงกับรุ่นที่ทดสอบ | commit toolchain พร้อม SHA-256 และตรวจใน worker ก่อน Compile; pin Runno และ fflate |
+| Dependency advisory | fflate 0.8.2 ที่ทดลองนำเข้ามี advisory | ใช้ 0.8.3; PostCSS override 8.5.32; audit ไม่พบรายการช่องโหว่ใน dependency production ณ วันที่ตรวจ |
+| Browser hardening | ไม่ได้ระบุ policy สำหรับ frame, object หรือ external connections | CSP, frame-ancestors none, X-Frame-Options DENY, nosniff, Referrer-Policy, Permissions-Policy |
+| File/path validation | ชื่อไฟล์และโปรเจกต์อาจไม่ตรงขอบเขตที่กำหนด | จำกัดชื่อไฟล์ .c/.h, ปฏิเสธ traversal/duplicate paths, จำกัดขนาดเป็น UTF-8 bytes |
+
+## Threat boundary
+
+ผู้เยี่ยมชมอาจเขียน C ที่เป็นอันตรายได้ แต่ C ทำงานเป็น WASI WebAssembly ภายใน dedicated worker ไม่ใช่ JavaScript eval หรือ native process ไม่ได้รับ host filesystem, environment, network หรือ shell imports runtime ใช้ virtual filesystem ใหม่เมื่อ Run ไม่แชร์กับ sysroot ของ compiler
+
+Worker ถูกทำลายหลังจบหรือเมื่อผู้ใช้ Stop และหน้าหลักยังใช้งานได้ระหว่างรัน ทรัพยากร compiler เป็น asset ที่เชื่อถือได้และมี integrity check ส่วนโค้ด C ของผู้ใช้ไม่ถูกส่งไป server เพื่อ Compile
+
+UI ใช้ React text rendering สำหรับ source, output และ errors ไม่มี dangerouslySetInnerHTML หรือการนำโค้ดผู้ใช้ไป eval เป็น JavaScript
+
+## ผลการตรวจ
+
+- npm test: 14 tests ครอบคลุมการ Compile C จริง, standards, stdin/stdout, EOF, syntax errors, worker timeout, output cap, stderr/exit status, WASM export, virtual filesystem/environment boundary, local header และ integrity assets
+- Production build และ TypeScript ผ่าน
+- Browser QA ของ Production: Run แสดงผลจริง, Stop ทำลาย worker และ compiled WASM ดาวน์โหลดได้
+- ตรวจ response headers และยืนยัน native endpoint ปิดใช้งาน
+- `npm audit --omit=dev`: 0 reported vulnerabilities ณ เวลาตรวจ
+- เพิ่ม CI ให้ตรวจ test/build/audit ทุก push และ pull request
+
+## ข้อจำกัดที่ยังคงอยู่
+
+1. ความปลอดภัยของ sandbox ยังพึ่งพา browser WebAssembly implementation และ Runno WASI จึงต้องอัปเดต dependencies/เบราว์เซอร์อย่างสม่ำเสมอ
+2. ขีดจำกัด 64 MiB ใช้กับ linear memory ของโปรแกรม C ไม่ได้ครอบคลุม compiler, เบราว์เซอร์ หรือ overhead ของ virtual filesystem ทั้งหมด โค้ดบางชนิดยังทำให้แท็บใช้ CPU/memory สูงได้ก่อน timeout จึงไม่ถือเป็น hard OS-level resource accounting
+3. CSP อนุญาต unsafe-inline สำหรับ Next.js bootstrap และ inline styling รวมทั้ง wasm-unsafe-eval สำหรับ WebAssembly ใน Production; JavaScript unsafe-eval เปิดเฉพาะ dev
+4. HTTP headers หรือ dependency audit ไม่ใช่หลักประกันว่าปลอดภัยทุกกรณี Google Fonts ยังเป็น external font request แต่ source และ Input ไม่ได้ถูกส่งไปที่นั่น
+5. Export โปรแกรมเป็น WASI `.wasm` ไม่ใช่ native `.exe`; ไม่รองรับ OS APIs/ไลบรารีนอก sysroot หรือ multi-file linking
+6. Hosting bandwidth สำหรับ toolchain ยังขึ้นกับโควตาของ Vercel; โหลดครั้งแรกประมาณ 50 MB ก่อน compression ไม่มีคำรับรองว่าการ hosting จะฟรีเสมอ
+
+## การดูแลหลังส่งมอบ
+
+ตรวจ npm audit และ CI เป็นระยะ ก่อนอัปเดต compiler ให้ตรวจ upstream licenses/provenance, เปลี่ยน manifest SHA-256, ทดสอบทั้งชุดและ browser QA ใหม่ หากต้องการรับรายงานช่องโหว่ให้ใช้ private GitHub security advisory แทนการโพสต์ exploit พร้อมข้อมูลผู้ใช้ใน public issue

@@ -1,0 +1,17 @@
+{
+  "clang.wasm": {
+    "url": "https://runno.dev/langs/clang.wasm",
+    "bytes": 31214472,
+    "sha256": "2a466f0e990329d3230b869d04fc20803eae96a7feb3a3f6c93e25a77b8aed1d"
+  },
+  "wasm-ld.wasm": {
+    "url": "https://runno.dev/langs/wasm-ld.wasm",
+    "bytes": 19490094,
+    "sha256": "36419ed202011765222098d7701218378b67f634d50f0a4625059ae2c9860f48"
+  },
+  "clang-fs.tar.gz": {
+    "url": "https://runno.dev/langs/clang-fs.tar.gz",
+    "bytes": 1790862,
+    "sha256": "7ed12063619882e4dfa710ab371fc91848b256f85a4075747e8bd5c167902b50"
+  }
+}

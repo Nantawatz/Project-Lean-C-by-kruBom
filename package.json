@@ -9,20 +9,19 @@
     "test": "node --test tests/runner.test.mjs"
   },
   "dependencies": {
+    "@runno/wasi": "0.10.3",
+    "fflate": "0.8.3",
+    "jszip": "^3.10.1",
+    "lucide-react": "^0.468.0",
     "next": "^15.5.12",
     "react": "^19.1.0",
-    "react-dom": "^19.1.0",
-    "lucide-react": "^0.468.0",
-    "jszip": "^3.10.1"
+    "react-dom": "^19.1.0"
   },
   "devDependencies": {
-    "typescript": "^5.7.0",
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
-    "@types/react-dom": "^19.0.0"
-  },
-  "optionalDependencies": {
-    "@oven/zig-win32-x64": "0.12.0-dev.1286"
+    "@types/react-dom": "^19.0.0",
+    "typescript": "^5.7.0"
   },
   "overrides": {
     "postcss": "8.5.32"

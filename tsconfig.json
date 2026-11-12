@@ -27,6 +27,7 @@
     "next-env.d.ts",
     "app/**/*.ts",
     "app/**/*.tsx",
+    "lib/**/*.ts",
     ".next-dev/types/**/*.ts"
   ],
   "exclude": [

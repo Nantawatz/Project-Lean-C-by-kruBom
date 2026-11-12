@@ -2,6 +2,9 @@ node_modules/
 .next/
 .next-dev/
 .next-verify/
-.env*.local
+.env*
+!.env.example
+.vercel/
 .c-studio/
 *.tsbuildinfo
+next-env.d.ts
