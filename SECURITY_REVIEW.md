@@ -26,7 +26,7 @@ UI ใช้ React text rendering สำหรับ source, output และ er
 
 ## ผลการตรวจ
 
-- npm test: 19 tests ครอบคลุมการ Compile C จริง, standards, stdin/stdout, EOF, syntax errors, worker timeout, output cap, stderr/exit status, WASM export, virtual filesystem/environment boundary, local header และ integrity assets รวมถึงการใช้ prepared compiler ซ้ำโดยไม่เก็บไฟล์ผู้ใช้ การป้องกัน cache เสีย fallback เมื่อ storage ใช้ไม่ได้ และการปฏิเสธ asset ที่ hash ไม่ตรง
+- npm test: 25 tests ครอบคลุมการ Compile C จริง, standards, stdin/stdout, EOF, syntax errors, worker timeout, output cap, stderr/exit status, WASM export, virtual filesystem/environment boundary, local header และ integrity assets รวมถึงการใช้ prepared compiler ซ้ำโดยไม่เก็บไฟล์ผู้ใช้ การป้องกัน cache เสีย fallback เมื่อ storage ใช้ไม่ได้ และการปฏิเสธ asset ที่ hash ไม่ตรง
 - Production build และ TypeScript ผ่าน
 - Browser QA ของ Production: Run แสดงผลจริง, Stop ทำลาย worker และ compiled WASM ดาวน์โหลดได้
 - ตรวจ response headers และยืนยัน native endpoint ปิดใช้งาน
@@ -49,3 +49,7 @@ UI ใช้ React text rendering สำหรับ source, output และ er
 ## Compiler cache
 
 เก็บเฉพาะ asset compiler ที่ตรวจ hash แล้วใน Cache Storage ตาม key ที่มี SHA-256 ของ manifest และเก็บ WebAssembly.Module กับ sysroot ต้นฉบับใน memory ระหว่างเปิดหน้า แต่ละ job รับ structured clone ของ template และสร้าง WASI instance ใหม่ ไม่ใช้ WASI memory, user virtual files, source หรือ Input ร่วมกัน การปิดหน้าเว็บล้าง compiler modules ใน memory ส่วน Cache Storage อาจอยู่ต่อจนเบราว์เซอร์ลบ ไม่ถือเป็นที่เก็บ source code
+
+## Named files and formatting
+
+ชื่อไฟล์ใหม่/เปลี่ยนชื่อผ่าน validation เดิม (.c/.h, ไม่มี traversal, ปฏิเสธชื่อซ้ำไม่แยกตัวพิมพ์เล็กใหญ่) การเปิดไฟล์ชื่อซ้ำจะสร้างชื่อที่ไม่ชนกัน Format ทำงานใน worker แยกด้วย Clang-Format WASM ที่ pin เวอร์ชันและ SHA-256 โหลดจาก origin เดียว ไม่ส่ง source ไปบริการภายนอก จำกัด source/output 100 KB และ timeout 30 วินาที มี snapshot guard ป้องกันผล Format เขียนทับโค้ดที่ผู้ใช้แก้ระหว่างรอ และมี Undo เฉพาะผล Format ล่าสุดที่ยังไม่ได้แก้ไขต่อ Formatter เก็บไว้ใช้ซ้ำใน memory ของหน้าปัจจุบัน และ source ไม่ถูกเก็บใน persistent cache

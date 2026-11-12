@@ -6,10 +6,11 @@
     "dev": "next dev --hostname 127.0.0.1",
     "build": "next build",
     "start": "next start --hostname 127.0.0.1",
-    "test": "node --test tests/runner.test.mjs"
+    "test": "node --test tests/runner.test.mjs tests/editor.test.mjs"
   },
   "dependencies": {
     "@runno/wasi": "0.10.3",
+    "@wasm-fmt/clang-format": "23.1.1",
     "fflate": "0.8.3",
     "jszip": "^3.10.1",
     "lucide-react": "^0.468.0",

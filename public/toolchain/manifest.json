@@ -13,5 +13,10 @@
     "url": "https://runno.dev/langs/clang-fs.tar.gz",
     "bytes": 1790862,
     "sha256": "7ed12063619882e4dfa710ab371fc91848b256f85a4075747e8bd5c167902b50"
+  },
+  "clang-format.wasm": {
+    "url": "https://www.npmjs.com/package/@wasm-fmt/clang-format/v/23.1.1",
+    "bytes": 2573116,
+    "sha256": "49d98626475dd2e22b9a3245b4bc0d7b1310db7f6c30176a89cc58d1e89b75bc"
   }
 }

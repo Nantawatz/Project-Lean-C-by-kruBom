@@ -16,9 +16,12 @@ Development ใช้ `.next-dev/` ส่วน Production ใช้ `.next/` �
 
 ## การใช้งาน
 
-- New file เปิดแท็บว่างใหม่ ไฟล์เก่ายังคงอยู่ สลับผ่านแท็บหรือ Sidebar และกด × เพื่อปิดแต่ละไฟล์
+- New file ให้ตั้งชื่อก่อนเปิดแท็บว่างใหม่ (ไม่ใส่นามสกุลจะเติม .c) เปลี่ยนชื่อได้ด้วยปุ่มดินสอข้างชื่อไฟล์ ดับเบิลคลิกแท็บ หรือ F2 รองรับ .c/.h และป้องกันชื่อซ้ำแบบไม่แยกตัวพิมพ์เล็ก/ใหญ่ ไฟล์เก่าไม่ถูกแทนที่
+- แท็บไฟล์ใหม่ยังว่างเหมือนเดิม ไฟล์เก่ายังคงอยู่ สลับผ่านแท็บหรือ Sidebar และกด × เพื่อปิดแต่ละไฟล์
 - เปิดไฟล์ `.c` / `.h` จากเครื่องได้ ไฟล์ชื่อซ้ำจะเปลี่ยนชื่อให้อัตโนมัติ
 - แต่ละแท็บเป็นโปรแกรมอิสระ: Run จะ Compile เฉพาะไฟล์ที่เลือก สามารถ `#include "values.h"` จากแท็บ header ได้ แต่ไม่ได้ link ทุกไฟล์ `.c` รวมกัน
+- Format ใช้ Clang-Format ใน WebAssembly ของเบราว์เซอร์ (Shift+Alt+F) ย่อหน้า 4 ช่อง มีปุ่ม Undo format และไม่เรียง #include ใหม่ หากโค้ดถูกแก้ระหว่างรอ Format จะไม่เขียนทับโค้ดใหม่ Formatter โหลดประมาณ 2.5 MB เฉพาะครั้งแรกที่ใช้และ cache ไว้ ไม่ต้องรอโหลด C compiler 50 MB เพื่อจัดรูปแบบ
+- เปลี่ยนชื่อ header แล้วต้องแก้ #include ที่อ้างชื่อเดิมด้วยตนเอง
 - กรอกค่าที่ `scanf` ต้องใช้ในแท็บ Input ก่อนกด Run หรือ Ctrl+Enter หากไม่มี Input จะได้รับ EOF
 - Output แสดงเมื่อโปรแกรมจบ Problems แสดงคำเตือน ข้อผิดพลาด และเหตุผลที่หยุด
 - Stop ยกเลิกการรันที่กำลังรอได้ทันที และทำลาย worker ของโปรแกรมเมื่อ Compile/Run อยู่ หากเป็นการโหลด compiler ครั้งแรก การเตรียม compiler ที่ไม่มีโค้ดผู้ใช้จะทำงานต่อเพื่อเก็บไว้ใช้รอบถัดไป
@@ -59,3 +62,5 @@ CI ทำคำสั่งเหล่านี้ทุก push / pull request
 ## Third-party notices
 
 Runno WASI เป็น MIT ส่วน compiler / linker / sysroot ใช้ LLVM, LLD, wasm-clang และ musl ใบอนุญาตอยู่ใน `public/toolchain/licenses/` พร้อม provenance และ SHA-256 ใน `public/toolchain/manifest.json` ดู [Runno](https://github.com/taybenlor/runno) และ [wasm-clang](https://github.com/binji/wasm-clang)
+
+Clang-Format ใช้แพ็กเกจ @wasm-fmt/clang-format 23.1.1 (wrapper: MIT; LLVM: Apache 2.0 with LLVM exceptions) พร้อมใบอนุญาตใน public/toolchain/licenses/CLANG-FORMAT-*.txt
