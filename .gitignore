@@ -1,0 +1,7 @@
+node_modules/
+.next/
+.next-dev/
+.next-verify/
+.env*.local
+.c-studio/
+*.tsbuildinfo
