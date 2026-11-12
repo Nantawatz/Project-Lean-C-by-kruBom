@@ -22,8 +22,8 @@ Development ใช้ `.next-dev/` ส่วน Production ใช้ `.next/` �
 - ไม่รองรับการสร้างหรือเปิดแท็บ `.h` แต่ยังใช้ไลบรารีมาตรฐาน เช่น `#include <stdio.h>` ในโปรแกรม `.c` ได้ตามปกติ
 - แต่ละแท็บเป็นโปรแกรมอิสระ: Run จะ Compile เฉพาะไฟล์ที่เลือก ไม่ได้ link ทุกไฟล์ `.c` รวมกัน
 - Format ใช้ Clang-Format ใน WebAssembly ของเบราว์เซอร์ (Shift+Alt+F) ย่อหน้า 4 ช่อง มีปุ่ม Undo format และไม่เรียง #include ใหม่ หากโค้ดถูกแก้ระหว่างรอ Format จะไม่เขียนทับโค้ดใหม่ Formatter โหลดประมาณ 2.5 MB เฉพาะครั้งแรกที่ใช้และ cache ไว้ ไม่ต้องรอโหลด C compiler 50 MB เพื่อจัดรูปแบบ
-- Run / Ctrl+Enter จาก Editor จะ Compile ตรวจข้อผิดพลาดก่อน: โปรแกรมที่รับค่าจาก stdin เช่น `scanf`, `getchar`, `fgets(..., stdin)` จะเปิดแท็บ Input พร้อมสถานะ “Compile ผ่านแล้ว · รอ Input” โดยยังไม่แสดงผล แม้จะมีค่า Input เดิมอยู่ ส่วนโปรแกรมที่ไม่รับ Input จะรันตามปกติ
-- กรอกค่าครบในแท็บ Input แล้วกด Enter เพื่อแสดงผล (Shift+Enter สำหรับขึ้นบรรทัดใหม่) ระบบใช้โปรแกรมที่ Compile ผ่านแล้วโดยไม่ Compile ซ้ำ ถ้าแก้โค้ด ชื่อไฟล์ ไฟล์อื่นในโปรเจกต์ หรือมาตรฐาน C จะตรวจ Compile ใหม่ก่อนรัน กด Enter โดยไม่มีค่า Input จะได้รับ EOF
+- Run / Ctrl+Enter เริ่ม Compile และรันโปรแกรม เมื่อถึง scanf / getchar / fgets โปรแกรมจะรอค่าในแท็บ Input พร้อมแสดงข้อความจาก printf ก่อนรับค่า
+- พิมพ์ค่าแล้วกด Enter ทีละครั้ง แต่ละครั้งส่งบรรทัดใหม่ให้โปรแกรมเดิมทำงานต่อโดยไม่ Compile หรือเริ่มโปรแกรมใหม่ Shift+Enter ใช้เตรียม Input หลายบรรทัด ปุ่มจบการป้อนค่า (EOF) ใช้ปิด stdin เช่น เมื่อต้องการจบลูปรับค่า
 - Output แสดงเมื่อโปรแกรมจบ Problems แสดงคำเตือน ข้อผิดพลาด และเหตุผลที่หยุด
 - Stop ยกเลิกการรันที่กำลังรอได้ทันที และทำลาย worker ของโปรแกรมเมื่อ Compile/Run อยู่ หากเป็นการโหลด compiler ครั้งแรก การเตรียม compiler ที่ไม่มีโค้ดผู้ใช้จะทำงานต่อเพื่อเก็บไว้ใช้รอบถัดไป
 - ลากเส้นเหนือ Console เพื่อแบ่งพื้นที่ ดับเบิลคลิกเพื่อคืนขนาดเดิม หรือใช้ปุ่มขยายพื้นที่เขียนโค้ด (Esc เพื่อออก)
@@ -44,7 +44,7 @@ Compiler และ sysroot ถูกเก็บใน `public/toolchain/` ร�
 
 - รองรับ C99 / C11 / C17, stdin/stdout และ standard library ที่ sysroot รองรับ เหมาะกับการเรียนและตัวอย่าง console
 - ไม่ใช่ Linux/Windows เต็มระบบ: ไม่มี shell, sockets, Windows API, การติดตั้ง package หรือการอ่านไฟล์จริง โปรแกรมเห็นเฉพาะไฟล์เสมือน
-- Compile timeout 60 วินาทีหลังโหลด toolchain, โหลดสูงสุด 120 วินาที, Run สูงสุด 5 วินาที
+- Compile timeout 60 วินาทีหลังโหลด toolchain, โหลดสูงสุด 120 วินาที, Run สูงสุด 5 วินาที (ไม่นับเวลารอผู้ใช้พิมพ์ Input)
 - Memory ของโปรแกรม C สูงสุด 64 MiB, Output ประมาณ 100 KB, source ต่อไฟล์และ Input ไม่เกิน 100 KB, รวม source 1 MB, เปิดสูงสุด 30 ไฟล์
 - Compile ใช้หน่วยความจำมากกว่าโปรแกรมที่รัน โทรศัพท์หรืออุปกรณ์หน่วยความจำน้อยอาจไม่เหมาะกับโค้ดขนาดใหญ่
 - ไม่มีบัญชีผู้ใช้หรือ cloud save ผู้ใช้ต้อง Export เพื่อเก็บงาน
@@ -65,3 +65,9 @@ CI ทำคำสั่งเหล่านี้ทุก push / pull request
 Runno WASI เป็น MIT ส่วน compiler / linker / sysroot ใช้ LLVM, LLD, wasm-clang และ musl ใบอนุญาตอยู่ใน `public/toolchain/licenses/` พร้อม provenance และ SHA-256 ใน `public/toolchain/manifest.json` ดู [Runno](https://github.com/taybenlor/runno) และ [wasm-clang](https://github.com/binji/wasm-clang)
 
 Clang-Format ใช้แพ็กเกจ @wasm-fmt/clang-format 23.1.1 (wrapper: MIT; LLVM: Apache 2.0 with LLVM exceptions) พร้อมใบอนุญาตใน public/toolchain/licenses/CLANG-FORMAT-*.txt
+
+## Input แบบโต้ตอบ
+
+ใช้ SharedArrayBuffer และ Atomics เพื่อให้ WASI worker รอรับค่าทีละบรรทัด โดย main thread ยังตอบสนองและ Stop ทำลาย worker ได้ เมื่อแก้ source / เปลี่ยนชื่อ / เปลี่ยนมาตรฐาน C / สลับแท็บ ระบบจะหยุดโปรแกรมเดิมเพื่อป้องกันการส่งค่าไปยังโค้ดเก่า Input รวมต่อการรันจำกัด 100 KB เช่นเดิม และ ZIP เก็บค่าที่ส่งแล้วของรอบล่าสุดไว้ด้วย
+
+ต้องใช้ secure context (HTTPS หรือ localhost) และ response headers Cross-Origin-Opener-Policy: same-origin กับ Cross-Origin-Embedder-Policy: require-corp ที่ตั้งไว้ใน Next.js เบราว์เซอร์ต้องรองรับ crossOriginIsolated และ SharedArrayBuffer โปรแกรมใช้ stdout แบบไม่ buffer เพื่อแสดง prompt แม้ไม่มี newline โดยไม่ต้องแก้ source ที่ผู้ใช้ Export

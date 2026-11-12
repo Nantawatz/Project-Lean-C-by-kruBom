@@ -6,6 +6,7 @@ import { MAX_SOURCE_BYTES, safeFilename } from './security.mjs';
 let ready:Promise<void>|null=null;
 self.onmessage=async(event:MessageEvent)=>{
   try{
+    if(!self.crossOriginIsolated)throw new Error('Formatter isolation is unavailable. Refresh the page and retry.');
     const {code,filename}=event.data;
     if(typeof code!=='string'||new TextEncoder().encode(code).length>MAX_SOURCE_BYTES||safeFilename(filename)!==filename)throw new Error('Invalid formatter input');
     if(!ready)ready=loadVerifiedAsset('clang-format.wasm',manifest['clang-format.wasm']).then(bytes=>init(new Uint8Array(bytes)));

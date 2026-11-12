@@ -4,6 +4,7 @@ import { Worker } from 'node:worker_threads';
 import { readFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { safeFilename, validateProgram } from '../lib/security.mjs';
+import { createInputBuffer, sendInput, closeInput, blockingInput } from '../lib/interactive-input.mjs';
 function program(code,options={}){return {code,input:'',filename:'main.c',files:[],standard:'c17',binary:false,...options};}
 function run(payload,runLimit=5000){return new Promise((resolve,reject)=>{
  const worker=new Worker(new URL('./engine-worker.mjs',import.meta.url),{workerData:payload});
@@ -13,6 +14,58 @@ function run(payload,runLimit=5000){return new Promise((resolve,reject)=>{
  worker.on('message',message=>{if(message.type==='result')done(message.result);else if(message.stage==='run'){clearTimeout(timer);timer=setTimeout(()=>done({reason:'Execution time limit exceeded'}),runLimit);}});
  worker.on('error',error=>{clearTimeout(timer);worker.terminate();reject(error);});
 });}
+
+function interactive(code,values){return new Promise((resolve,reject)=>{
+ const inputBuffer=createInputBuffer(), prompts=[];
+ const worker=new Worker(new URL('./engine-worker.mjs',import.meta.url),{workerData:program(code,{mode:'interactive',inputBuffer})});
+ const timer=setTimeout(()=>{worker.terminate();reject(new Error('Interactive test timed out'));},15000);
+ const fail=error=>{clearTimeout(timer);worker.terminate();reject(error);};
+ worker.on('error',fail);
+ worker.on('message',message=>{
+  if(message.type==='input'){
+   prompts.push(message.stdout);
+   if(!values.length){fail(new Error('Unexpected input request'));return;}
+   const value=values.shift();if(value===null)closeInput(inputBuffer);else sendInput(inputBuffer,value);
+  }else if(message.type==='result'){clearTimeout(timer);worker.terminate();resolve({...message.result,prompts});}
+ });
+});}
+
+test('interactive scanf accepts two separate lines and shows each prompt before waiting',async()=>{
+ const r=await interactive('#include <stdio.h>\nint main(){int num1,num2,sum;printf("Enter number 1: ");scanf("%d",&num1);printf("Enter number 2: ");scanf("%d",&num2);sum=num1+num2;printf("Sum = %d",sum);return 0;}',['12\n','8\n']);
+ assert.equal(r.code,0);assert.deepEqual(r.prompts,['Enter number 1: ','Enter number 1: Enter number 2: ']);assert.equal(r.stdout,'Enter number 1: Enter number 2: Sum = 20');
+});
+
+test('interactive fgets preserves Unicode, blank lines and newline semantics',async()=>{
+ const r=await interactive('#include <stdio.h>\nint main(void){char a[80],b[80];fgets(a,80,stdin);fgets(b,80,stdin);printf("[%s][%s]",a,b);return 0;}',['สวัสดี\n','\n']);
+ assert.equal(r.code,0);assert.equal(r.prompts.length,2);assert.equal(r.stdout,'[สวัสดี\n][\n]');
+});
+
+test('interactive stdin can be closed to finish an EOF loop',async()=>{
+ const r=await interactive('#include <stdio.h>\nint main(void){int n,sum=0;while(scanf("%d",&n)==1)sum+=n;printf("%d",sum);return 0;}',['1\n','2\n',null]);
+ assert.equal(r.code,0);assert.equal(r.prompts.length,3);assert.equal(r.stdout,'3');
+});
+
+test('interactive programs without stdin still complete immediately',async()=>{
+ const r=await interactive('#include <stdio.h>\nint main(void){puts("OK");return 0;}',[]);
+ assert.equal(r.code,0);assert.equal(r.stdout,'OK\n');assert.deepEqual(r.prompts,[]);
+});
+
+test('interactive compilation keeps source line numbers and reports errors before input',async()=>{
+ const r=await interactive('#include <stdio.h>\nint main(void){scanf("%d",0) BROKEN;}',[]);
+ assert.equal(r.stage,'compile');assert.notEqual(r.code,0);assert.match(r.stderr,/main\.c:2:/);assert.deepEqual(r.prompts,[]);
+});
+
+test('shared input bounds a UTF-8 line and rejects overwriting pending input',()=>{
+ const buffer=createInputBuffer();assert.throws(()=>sendInput(buffer,'ก'.repeat(34000)),/100 KB/);
+ sendInput(buffer,'1\n');assert.throws(()=>sendInput(buffer,'2\n'),/ยังไม่พร้อม/);closeInput(buffer);assert.equal(Atomics.load(new Int32Array(buffer,0,2),0),2);
+});
+
+test('shared input preserves Unicode across short reads and drains a line before asking again',()=>{
+ const buffer=createInputBuffer();let requests=0;
+ const read=blockingInput(buffer,()=>{requests++;sendInput(buffer,'กข\n');});
+ assert.equal(read(3),'ก');assert.equal(read(3),'ข');assert.equal(read(1),'\n');assert.equal(requests,1);
+ closeInput(buffer);assert.equal(read(10),null);assert.equal(requests,1);
+});
 
 test('compiles real C with stdin and stdout',async()=>{
  const r=await run(program('#include <stdio.h>\nint main(void){int a,b;if(scanf("%d %d",&a,&b)!=2)return 1;printf("%d\\n",a+b);return 0;}',{input:'12 8'}));

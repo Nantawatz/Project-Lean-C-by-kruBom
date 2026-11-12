@@ -26,7 +26,7 @@ UI ใช้ React text rendering สำหรับ source, output และ er
 
 ## ผลการตรวจ
 
-- npm test: 33 tests ครอบคลุมการ Compile C จริง, standards, stdin/stdout, EOF, syntax errors, worker timeout, output cap, stderr/exit status, WASM export, virtual filesystem/environment boundary, การแยกโปรแกรมแต่ละแท็บ และ integrity assets รวมถึงการใช้ prepared compiler ซ้ำโดยไม่เก็บไฟล์ผู้ใช้ การป้องกัน cache เสีย fallback เมื่อ storage ใช้ไม่ได้ และการปฏิเสธ asset ที่ hash ไม่ตรง
+- npm test: 40 tests ครอบคลุมการ Compile C จริง, standards, stdin/stdout, EOF, syntax errors, worker timeout, output cap, stderr/exit status, WASM export, virtual filesystem/environment boundary, การแยกโปรแกรมแต่ละแท็บ และ integrity assets รวมถึงการใช้ prepared compiler ซ้ำโดยไม่เก็บไฟล์ผู้ใช้ การป้องกัน cache เสีย fallback เมื่อ storage ใช้ไม่ได้ และการปฏิเสธ asset ที่ hash ไม่ตรง
 - Production build และ TypeScript ผ่าน
 - Browser QA ของ Production: Run แสดงผลจริง, Stop ทำลาย worker และ compiled WASM ดาวน์โหลดได้
 - ตรวจ response headers และยืนยัน native endpoint ปิดใช้งาน
@@ -61,3 +61,13 @@ UI ใช้ React text rendering สำหรับ source, output และ er
 - ตรวจ Production ในเครื่อง: Format, สร้างแท็บว่างโดยรักษาไฟล์เดิม, สลับ Light/Dark, Stop, timeout และรันงานต่อหลังหยุด
 - ดาวน์โหลด Source และตรวจว่าเนื้อหาตรงกับ Editor, ตรวจไฟล์และ Input ภายใน Project ZIP และตรวจ WebAssembly.validate ของโปรแกรมที่ Export
 - npm test ผ่าน 33 รายการ, Production build ผ่าน, npm audit --omit=dev ไม่พบรายงานช่องโหว่ และ /api/run ตอบ 410
+
+## Interactive stdin
+
+หน้าเว็บใช้ WASI worker เดิมตลอดหนึ่งโปรแกรม แต่ละ Enter ส่งบรรทัด UTF-8 ผ่าน SharedArrayBuffer ขนาดคงที่ 100 KB แล้ว Atomics.notify ให้ worker ทำงานต่อ ไม่รัน C บน main thread และไม่เริ่มโปรแกรมใหม่เพื่อจำลองการรับค่า โปรแกรม C ไม่ได้รับ import ของ JavaScript หรือ shared buffer โดยตรง
+
+จำกัด Input สะสม 100 KB เช่นเดิม แยก shared buffer ต่อ job, หยุด worker เมื่อ Stop / เปลี่ยน source / สลับแท็บ / timeout และคืน EOF เมื่อผู้ใช้จบการป้อนค่า เวลารอ Input ไม่กินงบประมวลผล 5 วินาที และไม่รวมในเวลาที่ UI รายงาน เพิ่ม COOP same-origin และ COEP require-corp เพื่อเปิด crossOriginIsolated ภายใต้ HTTPS หรือ localhost
+
+ตั้ง stdout เป็น unbuffered ด้วย constructor ภายใน source ที่ Compile เท่านั้น เพื่อให้ prompt แสดงก่อน scanf โดยไม่เปลี่ยน source ที่บันทึก/Export ใช้ #line รักษาตำแหน่ง error ของผู้ใช้ ทดสอบแยกสอง scanf, Unicode/บรรทัดว่าง, EOF loop, โปรแกรมไม่รับ Input, error line numbers และขนาด/สถานะ shared input
+
+ตรวจซ้ำก่อนส่ง Interactive stdin: npm test ผ่าน 40 รายการ, Production build ผ่าน, npm audit --omit=dev ไม่พบรายงานช่องโหว่ ตรวจการคลิกแท็บเดิมระหว่างรอค่าแล้ว Console ต้องไม่ถูกล้าง และป้องกันข้อความ worker ที่มาถึงหลัง Stop เปลี่ยนสถานะกลับมารอค่า ทดสอบ Production รับสองค่าได้ Sum = 20, Stop ระหว่างรอ, เปลี่ยน source ระหว่างรอ และสร้าง/รันแท็บใหม่หลังหยุดโปรแกรมเดิม ไม่พบ warn/error ใน Console ระหว่างกรณีทดสอบ
